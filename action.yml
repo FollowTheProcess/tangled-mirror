@@ -35,10 +35,15 @@ runs:
         GIT_SSH_COMMAND: "ssh -i ~/.ssh/tangled_key -o IdentitiesOnly=yes"
         TANGLED_HANDLE: ${{ inputs.tangled-handle }}
       run: |-
-        repo="${GITHUB_REPOSITORY#*/}" # FollowTheProcess/log -> log
-        # Bare mirror clone so the local side is a complete, authoritative copy of all refs
-        git clone --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "${RUNNER_TEMP}/tangled-mirror.git"
-        git -C "${RUNNER_TEMP}/tangled-mirror.git" push --mirror "git@tangled.org:${TANGLED_HANDLE}/${repo}"
+        # FollowTheProcess/log -> log
+        repo="${GITHUB_REPOSITORY#*/}"
+        mirror="${RUNNER_TEMP}/tangled-mirror.git"
+
+        git clone --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "$mirror"
+
+        # GitHub has read-only refs/pull/*, drop them so they aren't mirrored to tangled
+        git -C "$mirror" for-each-ref --format='delete %(refname)' refs/pull | git -C "$mirror" update-ref --stdin
+        git -C "$mirror" push --mirror "git@tangled.org:${TANGLED_HANDLE}/${repo}"
 
     - name: Cleanup
       if: always()
