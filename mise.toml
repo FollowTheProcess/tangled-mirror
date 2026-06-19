@@ -1,0 +1,12 @@
+[tools]
+actionlint = "latest"
+"npm:action-docs" = "latest"
+typos = "latest"
+
+[tasks.check]
+description = "Check the action"
+run = ["typos", "actionlint"]
+
+[tasks.docs]
+description = "Generate the action docs"
+run = "action-docs --update-readme --toc-level 2 --no-banner --source action.yml"

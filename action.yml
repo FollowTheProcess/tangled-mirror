@@ -1,0 +1,48 @@
+name: Mirror to Tangled
+description: GitHub Action to mirror the current repository to tangled.org
+author: FollowTheProcess
+
+branding:
+  icon: git-merge
+  color: blue
+
+inputs:
+  tangled-ssh-key:
+    description: The private SSH key for tangled.org (use a GitHub secret!)
+    required: true
+
+  tangled-handle:
+    description: Your tangled.org handle e.g. yourname.tngl.sh
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configure SSH
+      shell: bash
+      env:
+        TANGLED_SSH_KEY: ${{ inputs.tangled-ssh-key }}
+      run: |-
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        printf '%s\n' "$TANGLED_SSH_KEY" > ~/.ssh/tangled_key
+        chmod 600 ~/.ssh/tangled_key
+        ssh-keyscan tangled.org >> ~/.ssh/known_hosts 2>/dev/null
+
+    - name: Mirror to tangled
+      shell: bash
+      env:
+        GIT_SSH_COMMAND: "ssh -i ~/.ssh/tangled_key -o IdentitiesOnly=yes"
+        TANGLED_HANDLE: ${{ inputs.tangled-handle }}
+      run: |-
+        repo="${GITHUB_REPOSITORY#*/}" # FollowTheProcess/log -> log
+        # Bare mirror clone so the local side is a complete, authoritative copy of all refs
+        git clone --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "${RUNNER_TEMP}/tangled-mirror.git"
+        git -C "${RUNNER_TEMP}/tangled-mirror.git" push --mirror "git@tangled.org:${TANGLED_HANDLE}/${repo}"
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: |-
+        rm -f ~/.ssh/tangled_key
+        rm -rf "${RUNNER_TEMP}/tangled-mirror.git"
